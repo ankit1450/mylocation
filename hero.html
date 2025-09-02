@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Exact Location (With Consent)</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #121a2b;
+      --text: #e6ebff;
+      --muted: #9bb0d3;
+      --accent: #4da3ff;
+      --danger: #ef4444;
+      --ok: #22c55e;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(80% 120% at 50% 0%, #0e1730, #070c17 60%);
+      color: var(--text);
+      display: grid; place-items: center;
+      padding: 16px;
+    }
+    .card {
+      width: min(720px, 96vw);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      backdrop-filter: blur(6px);
+    }
+    h1 {
+      margin: 0 0 6px; font-size: 1.35rem; letter-spacing: 0.2px;
+    }
+    p { color: var(--muted); margin: 8px 0; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+    button {
+      appearance: none; border: none; cursor: pointer; padding: 10px 14px; border-radius: 12px; font-weight: 600;
+      background: #1b2742; color: var(--text); border: 1px solid rgba(255,255,255,0.08);
+    }
+    button.primary { background: var(--accent); color: #061224; border-color: transparent; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .out {
+      background: #0f1830; border: 1px dashed rgba(255,255,255,0.15); border-radius: 14px; padding: 12px; margin-top: 10px;
+    }
+    .grid { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: #0c1427; color: var(--text); }
+    a.link { display: inline-block; margin-right: 10px; margin-top: 10px; text-decoration: none; color: var(--accent); font-weight: 600; }
+    small { color: var(--muted); display: block; margin-top: 10px; }
+    .warn { color: var(--danger); font-weight: 600; }
+    ul { margin: 8px 0 0 18px; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Get My Exact Location (Ethical & With Consent)</h1>
+    <p>Ye page aapko <strong>GPS based exact location</strong> (latitude/longitude) deta hai jab aap <em>Allow</em> karte ho. Best accuracy ke liye phone ka GPS on rakhein.</p>
+    <p id="secureNote"></p>
+
+    <div class="btns">
+      <button id="getBtn" class="primary">Get My Location</button>
+      <button id="watchBtn">Start Live Tracking</button>
+      <button id="stopBtn" disabled>Stop Live Tracking</button>
+    </div>
+
+    <div id="out" class="out">Ready. Tap <em>Get My Location</em> and allow permission.</div>
+
+    <div class="grid">
+      <input id="coords" readonly placeholder="Lat,Lng will appear here" />
+      <button id="copyBtn">Copy</button>
+    </div>
+
+    <div>
+      <a id="mapsLink" class="link" target="_blank" rel="noopener">Open in Google Maps</a>
+      <a id="osmLink" class="link" target="_blank" rel="noopener">Open in OpenStreetMap</a>
+      <a id="waLink" class="link" target="_blank" rel="noopener">Share via WhatsApp</a>
+    </div>
+
+    <small>
+      Privacy: Ye tool sirf aapke device par run hota hai aur data kahin upload nahi karta. Agar aap chahein to aap coordinates manually share kar sakte hain. Use only with consent.
+    </small>
+  </div>
+
+  <script>
+    "use strict";
+    const secure = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
+    const note = document.getElementById('secureNote');
+    if (!secure) {
+      note.innerHTML = '<span class="warn">Note:</span> Geolocation <strong>HTTPS</strong> ya <strong>localhost</strong> par hi reliable kaam karta hai. Is file ko kisi HTTPS host par upload karein (Netlify, GitHub Pages, Vercel, etc.).';
+    } else {
+      note.textContent = 'Tip: First fix ke liye sky clear & GPS on; indoor me accuracy kam ho sakti hai.';
+    }
+
+    let watchId = null;
+    function fmt(n) { return Number(n).toFixed(6); }
+    function timeStr(ts) { return new Date(ts || Date.now()).toLocaleString(); }
+
+    function show(pos) {
+      const { latitude, longitude, accuracy, altitude, heading, speed } = pos.coords;
+      const lat = fmt(latitude), lng = fmt(longitude);
+      const acc = Math.round(accuracy);
+      document.getElementById('out').innerHTML = `
+        <ul>
+          <li><strong>Latitude:</strong> ${lat}</li>
+          <li><strong>Longitude:</strong> ${lng}</li>
+          <li><strong>Accuracy:</strong> ±${acc} m</li>
+          <li><strong>Timestamp:</strong> ${timeStr(pos.timestamp)}</li>
+          ${altitude != null ? `<li><strong>Altitude:</strong> ${Math.round(altitude)} m</li>` : ''}
+          ${heading != null ? `<li><strong>Bearing:</strong> ${Math.round(heading)}°</li>` : ''}
+          ${speed != null ? `<li><strong>Speed:</strong> ${speed.toFixed(1)} m/s</li>` : ''}
+        </ul>`;
+      const coordsStr = `${lat},${lng}`;
+      document.getElementById('coords').value = coordsStr;
+      document.getElementById('mapsLink').href = `https://maps.google.com/?q=${lat},${lng}`;
+      document.getElementById('osmLink').href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
+      const waText = encodeURIComponent(`My GPS location (±${acc}m):\n${coordsStr}\nhttps://maps.google.com/?q=${lat},${lng}`);
+      document.getElementById('waLink').href = `https://wa.me/?text=${waText}`;
+    }
+
+    function onErr(err) {
+      document.getElementById('out').innerHTML = `<p style="color:#ef9a9a">Error: ${err.message} (code ${err.code}). Try going outdoors, turning on GPS, and ensuring HTTPS.</p>`;
+    }
+
+    const options = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+
+    document.getElementById('getBtn').onclick = () => {
+      if (!('geolocation' in navigator)) {
+        document.getElementById('out').innerHTML = '<p class="warn">This browser does not support Geolocation API.</p>';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(show, onErr, options);
+    };
+
+    document.getElementById('watchBtn').onclick = () => {
+      if (watchId != null) return;
+      watchId = navigator.geolocation.watchPosition(show, onErr, options);
+      document.getElementById('stopBtn').disabled = false;
+    };
+
+    document.getElementById('stopBtn').onclick = () => {
+      if (watchId != null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      document.getElementById('stopBtn').disabled = true;
+    };
+
+    document.getElementById('copyBtn').onclick = async () => {
+      const v = document.getElementById('coords').value;
+      try { await navigator.clipboard.writeText(v); alert('Copied: ' + v); }
+      catch (e) { window.prompt('Copy coordinates:', v); }
+    };
+  </script>
+</body>
+</html>
